@@ -1,29 +1,35 @@
 import { Page, Locator } from '@playwright/test';
-import { BasePage } from '../../framework/base-page';
+import { BasePage } from '../base-page';
 
 export class SauceInventoryPage extends BasePage {
   readonly inventoryContainer: Locator;
-  readonly inventoryItems: Locator;
-  readonly addToCartButtons: Locator;
   readonly cartBadge: Locator;
-
+  readonly sortDropdown: Locator;
+  
   constructor(page: Page) {
     super(page);
-    this.inventoryContainer = page.locator('.app_logo');
-    this.inventoryItems = page.locator('.inventory_item');
-    this.addToCartButtons = page.locator('[data-test^="add-to-cart"]');
+    this.inventoryContainer = page.locator('.header_secondary_container');
     this.cartBadge = page.locator('.shopping_cart_badge');
+    this.sortDropdown = page.locator('.product_sort_container');
   }
-
-  async addItemToCart(itemIndex: number = 0): Promise<void> {
-    await this.addToCartButtons.nth(itemIndex).click();
+  
+  async addItemToCart(itemIndex: number): Promise<void> {
+    const addToCartButtons = this.page.locator('.inventory_item button');
+    await addToCartButtons.nth(itemIndex).click();
   }
-
-  async getItemCount(): Promise<number> {
-    return await this.inventoryItems.count();
+  
+  async sortProducts(sortOption: string): Promise<void> {
+    await this.sortDropdown.selectOption(sortOption);
   }
-
-  async goToCart(): Promise<void> {
-    await this.page.click('.shopping_cart_link');
+  
+  async getProductNames(): Promise<string[]> {
+    const productNameElements = this.page.locator('.inventory_item_name');
+    return await productNameElements.allTextContents();
+  }
+  
+  async getProductPrices(): Promise<number[]> {
+    const priceElements = this.page.locator('.inventory_item_price');
+    const priceTexts = await priceElements.allTextContents();
+    return priceTexts.map(text => parseFloat(text.replace('$', '')));
   }
 }

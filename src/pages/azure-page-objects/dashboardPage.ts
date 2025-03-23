@@ -1,23 +1,29 @@
 import { Page, Locator } from '@playwright/test';
-import { BasePage } from '../../framework/base-page';
+import { BasePage } from '../base-page';
 
-export class DashboardPage extends BasePage {
+export class SecondDashboardPage extends BasePage {
   readonly dashboardContainer: Locator;
-  readonly userProfile: Locator;
+  readonly userGreeting: Locator;
   readonly menuItems: Locator;
-
+  
   constructor(page: Page) {
     super(page);
     this.dashboardContainer = page.locator('.dashboard-container');
-    this.userProfile = page.locator('.user-profile');
+    this.userGreeting = page.locator('.user-greeting');
     this.menuItems = page.locator('.menu-item');
   }
-
-  async navigateToSection(sectionName: string): Promise<void> {
-    await this.page.click(`.menu-item:text("${sectionName}")`);
+  
+  async navigateToMenuItem(menuName: string): Promise<void> {
+    const menuLocator = this.page.locator(`.menu-item:has-text("${menuName}")`);
+    await menuLocator.click();
   }
-
-  async getUserInfo(): Promise<string> {
-    return await this.userProfile.innerText();
+  
+  async getUserName(): Promise<string> {
+    const greeting = await this.userGreeting.textContent();
+    return greeting ? greeting.replace('Welcome, ', '').replace('!', '') : '';
+  }
+  
+  async isLoggedIn(): Promise<boolean> {
+    return await this.dashboardContainer.isVisible();
   }
 }

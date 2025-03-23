@@ -1,6 +1,6 @@
 import { Page, Locator } from '@playwright/test';
-import { BasePage } from '../../framework/base-page';
-import { Config } from '../../config/config';
+import { BasePage } from '../base-page';
+import { Config } from '../../framework/config';
 
 export class SauceLoginPage extends BasePage {
   readonly usernameInput: Locator;
