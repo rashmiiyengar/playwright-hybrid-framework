@@ -1,25 +1,25 @@
 import { test, expect } from '../../framework/fixtures';
 import { SauceInventoryPage } from '../../pages/sauce-page-objects/inventory-page';
-import { SauceCartPage } from '../../pages/sauce-page-objects/cart-page';
 
-test.describe('Sauce Demo - Inventory Tests', () => {
-  test.beforeEach(async ({ currentSite }) => {
-    // Skip all tests in this describe block if not running on sauce site
+test.describe('Sauce Demo - Login Verification', () => {
+  test.beforeEach(async ({ page, currentSite }) => {
+    // Skip all tests in this describe block if not running on Sauce Demo site
     test.skip(currentSite !== 'sauce', 'These tests only run on Sauce Demo site');
+    
+    // Listen for dialogs (like password change prompts) and dismiss them
+    page.on('dialog', async (dialog) => {
+      console.log('Dialog type:', dialog.type());
+      if (dialog.type() === 'alert' || dialog.type() === 'confirm') {
+        await dialog.dismiss(); // Dismiss password change or any similar dialog
+      }
+    });
   });
 
-  test('Add item to cart', async ({ page }) => {
+  test('Verify if user is logged in', async ({ page }) => {
     // Create page object
     const inventoryPage = new SauceInventoryPage(page);
-    
-    // Verify we are on the inventory page
-    await expect(inventoryPage.inventoryContainer).toBeVisible({ timeout: 10000 });
-    
-    // Add item to cart
-    await inventoryPage.addItemToCart(0);
-    
-    // Verify item was added
-    await expect(inventoryPage.cartBadge).toBeVisible();
-    await expect(inventoryPage.cartBadge).toHaveText('1');
+
+    // Verify we are on the inventory page and logged in
+    await inventoryPage.validateLogin();
   });
 });

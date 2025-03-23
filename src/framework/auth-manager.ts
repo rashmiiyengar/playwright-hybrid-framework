@@ -41,22 +41,24 @@ export class AuthManager {
   static async setupAuth(site: SiteType): Promise<string> {
     const authConfig = Config.getAuthConfig(site);
     const storageStateFile = authConfig.storageStateFile;
-    const absoluteStorageStateFile = path.resolve(process.cwd(), storageStateFile);
-    const authFolder = path.dirname(absoluteStorageStateFile);
-    
+
+    // Get the relative storage state file path (based on the current working directory)
+    const relativeStorageStateFile = path.resolve(process.cwd(), storageStateFile);
+
     // Check if storage state already exists and is fresh
-    if (fs.existsSync(absoluteStorageStateFile)) {
-      const stats = fs.statSync(absoluteStorageStateFile);
+    if (fs.existsSync(relativeStorageStateFile)) {
+      const stats = fs.statSync(relativeStorageStateFile);
       const fileAge = (new Date().getTime() - stats.mtime.getTime()) / 1000 / 60; // in minutes
       const maxAge = parseInt(process.env.AUTH_MAX_AGE || '60'); // Default 60 minutes
-      
+
       if (fileAge < maxAge) {
         console.log(`Using existing auth state for ${site} (${fileAge.toFixed(2)} minutes old)`);
-        return absoluteStorageStateFile;
+        return relativeStorageStateFile;
       }
     }
 
     // Create auth directory if needed
+    const authFolder = path.dirname(relativeStorageStateFile);
     if (!fs.existsSync(authFolder)) {
       fs.mkdirSync(authFolder, { recursive: true });
     }
@@ -118,7 +120,12 @@ export class AuthManager {
       console.log(`Waiting for logged-in selector: ${selectors.loggedInSelector}`);
       
       // Wait for successful login
+      await page.waitForSelector(selectors.loggedInSelector);
       await page.screenshot({ path: `./screenshots/${site}-after-login.png` });
+
+      // Save storage state
+      await context.storageState({ path: relativeStorageStateFile });
+
     } catch (error) {
       console.error(`❌ Error setting up auth for ${site}:`, error);
       // Take screenshot on failure
@@ -128,6 +135,6 @@ export class AuthManager {
       await browser.close();
     }
     
-    return absoluteStorageStateFile;
+    return relativeStorageStateFile;
   }
 }
