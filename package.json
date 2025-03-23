@@ -1,0 +1,21 @@
+{
+  "name": "pw-hybrid-framework",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:sauce": "cross-env SITE=sauce playwright test --project=sauce",
+    "test:other": "cross-env SITE=azure playwright test --project=azure",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "@types/node": "^22.13.11",
+    "cross-env": "^7.0.3",
+    "typescript": "^5.0.4"
+  }
+}
