@@ -1,68 +1,66 @@
-// config.ts
-export interface SiteCredentials {
+import path from 'path';
+
+// Define the available site types
+export type SiteType = 'sauce' | 'second' | 'third';
+
+interface AuthCredentials {
   username: string;
   password: string;
 }
 
-export interface SiteAuthConfig {
+interface AuthConfig {
+  credentials: AuthCredentials;
   storageStateFile: string;
-  credentials: SiteCredentials;
 }
-
-export interface SiteConfig {
-  baseUrl: string;
-  authConfig: SiteAuthConfig;
-}
-
-export type SiteType = 'sauce' | 'second' | 'third';
 
 export class Config {
-  private static readonly sites: Record<SiteType, SiteConfig> = {
-    'sauce': {
-      baseUrl: process.env.SAUCE_BASE_URL || 'https://www.saucedemo.com',
-      authConfig: {
-        storageStateFile: process.env.SAUCE_STORAGE_STATE || './auth/sauce-storage-state.json',
-        credentials: {
-          username: process.env.SAUCE_USERNAME || 'standard_user',
-          password: process.env.SAUCE_PASSWORD || 'secret_sauce'
-        }
-      }
-    },
-    'second': {
-      baseUrl: process.env.SECOND_BASE_URL || 'https://www.anotherwebsite.com',
-      authConfig: {
-        storageStateFile: process.env.SECOND_STORAGE_STATE || './auth/second-storage-state.json',
-        credentials: {
-          username: process.env.SECOND_USERNAME || 'admin_user',
-          password: process.env.SECOND_PASSWORD || 'admin_password'
-        }
-      }
-    },
-    'third': {
-      baseUrl: process.env.THIRD_BASE_URL || 'https://www.thirdwebsite.com',
-      authConfig: {
-        storageStateFile: process.env.THIRD_STORAGE_STATE || './auth/third-storage-state.json',
-        credentials: {
-          username: process.env.THIRD_USERNAME || 'test_user',
-          password: process.env.THIRD_PASSWORD || 'test_password'
-        }
-      }
-    }
-  };
-
   static getBaseUrl(site: SiteType): string {
-    return this.sites[site]?.baseUrl || this.sites['sauce'].baseUrl;
+    const baseUrls: Record<SiteType, string> = {
+      'sauce': process.env.SAUCE_BASE_URL || 'https://www.saucedemo.com',
+      'second': process.env.SECOND_BASE_URL || 'https://www.anotherwebsite.com',
+      'third': 'https://your-third-site.com',
+    };
+    
+    return baseUrls[site] || baseUrls['sauce'];
   }
 
-  static getAuthConfig(site: SiteType): SiteAuthConfig {
-    return this.sites[site]?.authConfig || this.sites['sauce'].authConfig;
+  static getAuthConfig(site: SiteType): AuthConfig {
+    // Default credentials for each site
+    const configs: Record<SiteType, AuthConfig> = {
+      'sauce': {
+        credentials: {
+          username: process.env.SAUCE_USERNAME || '',
+          password: process.env.SAUCE_PASSWORD || '',
+        },
+        storageStateFile: process.env.SAUCE_STORAGE_STATE || './auth/sauce-storage-state.json',
+      },
+      'second': {
+        credentials: {
+          username: process.env.SECOND_USERNAME || 'demo',
+          password: process.env.SECOND_PASSWORD || 'demo',
+        },
+        storageStateFile: process.env.SECOND_STORAGE_STATE || './auth/second-storage-state.json',
+      },
+      'third': {
+        credentials: {
+          username: process.env.THIRD_USERNAME || 'user',
+          password: process.env.THIRD_PASSWORD || 'password',
+        },
+        storageStateFile: './auth/third-storage-state.json',
+      }
+    };
+    
+    return configs[site] || configs['sauce'];
   }
 
-  static getSiteConfig(site: SiteType): SiteConfig {
-    return this.sites[site] || this.sites['sauce'];
+  // Validate if a string is a valid SiteType
+  static isSiteType(site: string): site is SiteType {
+    return ['sauce', 'second', 'third'].includes(site);
   }
-  
-  static getAvailableSites(): SiteType[] {
-    return Object.keys(this.sites) as SiteType[];
+
+  // Get site type safely from environment or input
+  static getSiteType(envSite?: string): SiteType {
+    const site = envSite || process.env.SITE || 'sauce';
+    return Config.isSiteType(site) ? site : 'sauce';
   }
 }

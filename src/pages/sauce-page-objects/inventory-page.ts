@@ -1,22 +1,21 @@
-import { Page, Locator } from '@playwright/test';
+// File: pages/sauce-page-objects/inventory-page.ts
+import { Page, expect } from '@playwright/test';
 import { BasePage } from '../base-page';
 
 export class SauceInventoryPage extends BasePage {
-  readonly appLogo: Locator;
-
+  private readonly inventoryContainer = '.app_logo';
+  
   constructor(page: Page) {
     super(page);
-    this.appLogo = this.page.locator('.app_logo'); // Element that indicates a successful login
   }
-
-  /**
-   * Validate that the user is logged in by checking the visibility of the app logo.
-   */
-  async validateLogin(): Promise<void> {
-    // Wait for the page to be fully loaded before checking login
-    await this.waitForPageLoad();
-    
-    // Wait for the app logo to be visible, indicating successful login
-    await this.appLogo.waitFor({ state: 'visible', timeout: 10000 });
+  
+  async verifyInventoryPageLoaded(): Promise<boolean> {
+    try {
+      await this.waitForSelector(this.inventoryContainer, 10000);
+      return true;
+    } catch (error) {
+      console.error('Error verifying inventory page loaded:', error);
+      return false;
+    }
   }
 }

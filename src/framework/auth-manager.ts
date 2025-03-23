@@ -1,4 +1,3 @@
-// auth-manager.ts
 import fs from 'fs';
 import path from 'path';
 import { chromium } from '@playwright/test';
@@ -12,7 +11,6 @@ interface LoginSelectors {
 }
 
 export class AuthManager {
-  // Define the site-specific login selectors directly in the AuthManager
   private static getLoginSelectors(site: SiteType): LoginSelectors {
     const selectors: Record<SiteType, LoginSelectors> = {
       'sauce': {
@@ -35,106 +33,86 @@ export class AuthManager {
       }
     };
     
-    return selectors[site] || selectors['sauce'];
+    return selectors[site];
   }
 
   static async setupAuth(site: SiteType): Promise<string> {
-    const authConfig = Config.getAuthConfig(site);
-    const storageStateFile = authConfig.storageStateFile;
+    // Validate site type
+    const validSite = Config.getSiteType(site as string);
+    console.log(`Setting up auth for site: ${validSite}`);
 
-    // Get the relative storage state file path (based on the current working directory)
+    const authConfig = Config.getAuthConfig(validSite);
+    const storageStateFile = authConfig.storageStateFile;
     const relativeStorageStateFile = path.resolve(process.cwd(), storageStateFile);
 
-    // Check if storage state already exists and is fresh
     if (fs.existsSync(relativeStorageStateFile)) {
       const stats = fs.statSync(relativeStorageStateFile);
-      const fileAge = (new Date().getTime() - stats.mtime.getTime()) / 1000 / 60; // in minutes
-      const maxAge = parseInt(process.env.AUTH_MAX_AGE || '60'); // Default 60 minutes
+      const fileAge = (Date.now() - stats.mtime.getTime()) / 1000 / 60;
+      const maxAge = parseInt(process.env.AUTH_MAX_AGE || '60');
 
       if (fileAge < maxAge) {
-        console.log(`Using existing auth state for ${site} (${fileAge.toFixed(2)} minutes old)`);
+        console.log(`✅ Using existing auth state for ${validSite} (${fileAge.toFixed(2)} min old)`);
         return relativeStorageStateFile;
       }
     }
 
-    // Create auth directory if needed
     const authFolder = path.dirname(relativeStorageStateFile);
-    if (!fs.existsSync(authFolder)) {
-      fs.mkdirSync(authFolder, { recursive: true });
-    }
+    if (!fs.existsSync(authFolder)) fs.mkdirSync(authFolder, { recursive: true });
 
-    // Ensure screenshots directory exists
-    const screenshotsDir = path.resolve(process.cwd(), './screenshots');
-    if (!fs.existsSync(screenshotsDir)) {
-      fs.mkdirSync(screenshotsDir, { recursive: true });
-    }
+    const screenshotsDir = path.resolve(process.cwd(), '../screenshots');
+    if (!fs.existsSync(screenshotsDir)) fs.mkdirSync(screenshotsDir, { recursive: true });
 
-    // Setup new auth session
-    console.log(`Creating new auth state for ${site}`);
-    const browser = await chromium.launch({ 
-      headless: process.env.HEADLESS !== 'false'
-    });
+    console.log(`🔒 Creating new auth state for ${validSite}`);
+    const browser = await chromium.launch({ headless: process.env.HEADLESS !== 'false' });
     const context = await browser.newContext();
     const page = await context.newPage();
-    
-    try {
-      // Go to the site
-      console.log(`Navigating to: ${Config.getBaseUrl(site)}`);
-      await page.goto(Config.getBaseUrl(site));
-      
-      // Log current page details
-      console.log(`Current URL after navigation: ${page.url()}`);
-      await page.screenshot({ path: `./screenshots/${site}-before-login.png` });
-      
-      // Get login selectors for this site
-      const selectors = AuthManager.getLoginSelectors(site);
-      console.log(`Using selectors for ${site}:`, selectors);
-      
-      // Check if selectors are present
-      const usernameVisible = await page.isVisible(selectors.usernameField);
-      const passwordVisible = await page.isVisible(selectors.passwordField);
-      const submitVisible = await page.isVisible(selectors.submitButton);
-      
-      console.log(`Login form visibility check:
-        - Username field (${selectors.usernameField}): ${usernameVisible}
-        - Password field (${selectors.passwordField}): ${passwordVisible}
-        - Submit button (${selectors.submitButton}): ${submitVisible}`);
-      
-      if (!usernameVisible || !passwordVisible || !submitVisible) {
-        console.log("One or more login elements not found on page!");
-        // Dump HTML for debugging
-        const pageContent = await page.content();
-        fs.writeFileSync(`./screenshots/${site}-page-content.html`, pageContent);
-      }
-      
-      // Fill login form using site-specific selectors
-      console.log(`Entering username: ${authConfig.credentials.username}`);
-      await page.fill(selectors.usernameField, authConfig.credentials.username);
-      
-      console.log(`Entering password: ***`);
-      await page.fill(selectors.passwordField, authConfig.credentials.password);
-      
-      console.log(`Clicking submit button: ${selectors.submitButton}`);
-      await page.click(selectors.submitButton);
-      
-      console.log(`Waiting for logged-in selector: ${selectors.loggedInSelector}`);
-      
-      // Wait for successful login
-      await page.waitForSelector(selectors.loggedInSelector);
-      await page.screenshot({ path: `./screenshots/${site}-after-login.png` });
 
-      // Save storage state
+    try {
+      const baseUrl = Config.getBaseUrl(validSite);
+      console.log(`🌍 Navigating to: ${baseUrl}`);
+      await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+      console.log(`📸 Taking pre-login screenshot`);
+      await page.screenshot({ path: `./screenshots/${validSite}-before-login.png` });
+
+      const selectors = AuthManager.getLoginSelectors(validSite);
+      console.log(`🔍 Using selectors for ${validSite}:`, selectors);
+
+      if (await page.isClosed()) throw new Error("Page was closed prematurely");
+
+      // Ensure all elements are visible
+      await Promise.all([
+        page.waitForSelector(selectors.usernameField, { timeout: 10000 }),
+        page.waitForSelector(selectors.passwordField, { timeout: 10000 }),
+        page.waitForSelector(selectors.submitButton, { timeout: 10000 })
+      ]);
+
+      console.log(`⌨️ Filling login form`);
+      await page.fill(selectors.usernameField, authConfig.credentials.username);
+      await page.fill(selectors.passwordField, authConfig.credentials.password);
+      await page.click(selectors.submitButton);
+
+      console.log(`⏳ Waiting for logged-in selector: ${selectors.loggedInSelector}`);
+      await page.waitForSelector(selectors.loggedInSelector, { timeout: 15000 });
+
+      await page.screenshot({ path: `./screenshots/${validSite}-after-login.png` });
       await context.storageState({ path: relativeStorageStateFile });
+      console.log(`✅ Auth state saved: ${relativeStorageStateFile}`);
 
     } catch (error) {
-      console.error(`❌ Error setting up auth for ${site}:`, error);
-      // Take screenshot on failure
-      await page.screenshot({ path: `./screenshots/${site}-login-error.png` });
+      console.error(`❌ Error setting up auth for ${validSite}:`, error);
+      if (!page.isClosed()) {
+        await page.screenshot({ path: `./screenshots/${validSite}-login-error.png` });
+        console.log(`📸 Error screenshot saved.`);
+      }
       throw error;
     } finally {
+      console.log("🚪 Closing resources...");
+      if (!page.isClosed()) await page.close();
+      await context.close();
       await browser.close();
     }
-    
+
     return relativeStorageStateFile;
   }
 }
